@@ -30,6 +30,7 @@
  **************************************************************************************************/
 /*! \file
     \brief Templates exposing architecture support for multiply-add operations
+    注释：为乘加运算提供架构支持的模板
 */
 
 #pragma once
@@ -133,9 +134,9 @@ struct OpClassSparseTensorOp {};
 
 /// Matrix multiply-add operation
 template <
-  /// Size of the matrix product (concept: GemmShape)
+  /// Size of the matrix product (concept: GemmShape)  注释：矩阵乘积的大小（概念：GemmShape）
   typename Shape_,
-  /// Number of threads participating
+  /// Number of threads participating  注释：参与的线程数
   int kThreads_,
   /// Data type of A elements
   typename ElementA,
@@ -149,7 +150,7 @@ template <
   typename ElementC,
   /// Layout of C matrix (concept: MatrixLayout)
   typename LayoutC,
-  /// Inner product operator
+  /// Inner product operator  注释：内积运算符
   typename Operator
 >
 struct Mma;

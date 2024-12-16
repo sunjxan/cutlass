@@ -53,6 +53,8 @@ namespace arch {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// Initiates an asynchronous copy from global memory to shared memory.
+/// 注释：从全局内存到共享内存的异步复制
+/// 需要 CUDA 计算能力在 8.0 及以上
 ///
 /// cp.async
 ///

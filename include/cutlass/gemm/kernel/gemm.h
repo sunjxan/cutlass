@@ -69,6 +69,7 @@ struct Gemm {
   static int const kThreadCount = 32 * WarpCount::kCount;
 
   /// Parameters structure
+  // 注释：kernel::Gemm::Params参数
   struct Params {
     cutlass::gemm::GemmCoord problem_size;
     cutlass::gemm::GemmCoord grid_tiled_shape;

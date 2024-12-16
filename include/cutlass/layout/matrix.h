@@ -1328,6 +1328,7 @@ public:
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// Defines transposes of matrix layouts
+// 注释：矩阵行优先存储和转置矩阵列优先存储结果一致，转置等价于改变存储layout
 template <typename Layout>
 struct LayoutTranspose;
 

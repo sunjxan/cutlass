@@ -184,6 +184,14 @@ struct WmmaToCutlassDataType<__nv_bfloat16> {
 // WMMA template structure defines nvcuda::wmma::fragments and static assertion chaeks
 // for a specific template paramterized data type (Element[A|B|C]), layout (Layout[A|B|C]), 
 // and native wmma size (Shape)
+// 注释：
+// cutlass::arch::Wmma比cutlass::arch::Mma少一个模板参数kThreads_，默认参与线程数是32，即一个Warp
+// wmma API 需要 CUDA 计算能力在 7.0 及以上
+// 常用GemmShape
+// <16, 16, 16>
+// < 8, 32, 16>
+// <32,  8, 16>
+// <8, 8, 32>
 /////////////////////////////////////////////////////////////////////////////////////////////////
 template <  
   typename Shape_,                                   ///< Size of the matrix product (concept: GemmShape)

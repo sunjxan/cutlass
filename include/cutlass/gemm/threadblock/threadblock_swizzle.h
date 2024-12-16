@@ -31,6 +31,7 @@
 /*! \file
     \brief Implements several possible threadblock-swizzling functions mapping blockIdx to 
       GEMM problems.
+    注释：实现多个可能的线程块旋转函数，将 blockIdx 映射到  GEMM 问题。
 */
 
 #pragma once
@@ -61,6 +62,7 @@ struct GemmIdentityThreadblockSwizzle {
 
   /// Returns the shape of the problem in units of logical tiles
   /// *Gemm* problem size: gemm(M, N, K)
+  // 注释：tiled_shape = (DIVUP(problem_size.m, tile_size.m), DIVUP(problem_size.n, tile_size.n), split_k_slices)
   CUTLASS_HOST_DEVICE
   static GemmCoord get_tiled_shape(
     GemmCoord problem_size,

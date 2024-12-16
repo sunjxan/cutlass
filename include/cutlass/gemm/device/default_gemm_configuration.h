@@ -77,7 +77,7 @@ struct DefaultGemmConfiguration<
   ElementB, 
   ElementC, 
   ElementAccumulator> {
-  
+  // 注释：默认配置
   static int const kAlignmentA = 1;
   static int const kAlignmentB = 1;
   using ThreadblockShape = GemmShape<128, 128, 8>;

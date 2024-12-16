@@ -110,7 +110,35 @@ struct Mma<
     unsigned const *B = reinterpret_cast<unsigned const *>(&b);
     unsigned const *C = reinterpret_cast<unsigned const *>(&c);
     unsigned *D = reinterpret_cast<unsigned *>(&d);
+    /*
+    注释：
+      需要 CUDA 计算能力在 7.0 及以上
+      asm volatile( "mma.sync.aligned.mMnNkK.row.col.tD.tA.tB.tC {}, {}, {}, {};\n" : "=r"() : "r"() );
+      volatile表示该指令有副作用，不应该被优化掉
+      可以一次执行多条语句，使用%加数字当作占位符
+      第一个冒号后的寄存器，通过引用传递变量，寄存器类型前有=，用于输出，可以为空
+      第二个冒号后的寄存器，通过值传递变量，用于输入，可以为空
+      输入输出寄存器按照前后顺序从0开始编号，填充占位符
 
+      mMnNkK 表示M-by-N-by-K，D(MxN) = A(MxK) * B(KxN) + C(MxN)
+      row.col. 表示AB矩阵二维转一维时是行优先还是列优先，C,D是行优先
+      satfinite表示饱和，只有整形数据支持
+      tD.tA.tB.tC 表示D A B C 每个矩阵的操作数的类型
+      {}里是D A B C 对应的四个矩阵的操作数所在的寄存器的占位符，占位符个数=寄存器个数
+      后面填入变量使用的寄存器，"r"表示32为寄存器，"d"表示64位寄存器，"l"表示存储局部内存地址的32位寄存器
+
+      单个线程使用矩阵元素个数 = (寄存器个数x寄存器位数) / 操作数位数
+      参与线程数 = (矩阵元素个数x操作数位数) / (寄存器个数x寄存器位数)
+      矩阵元素个数 = 参与线程数x单个线程使用矩阵元素个数
+
+      常用GemmShape
+      <8, 8, 4> 8线程
+      <16, 8, 8> 32线程
+      <8, 8, 16> 32线程
+      <8, 8, 32> 32线程
+      <16, 8, 16> 32线程
+      <16, 8, 4> 32线程
+    */
     asm volatile("mma.sync.aligned.m8n8k4.col.col.f16.f16.f16.f16 {%0,%1,%2,%3}, {%4,%5}, {%6,%7}, {%8,%9,%10,%11};\n"
       : "=r"(D[0]), "=r"(D[1]), "=r"(D[2]), "=r"(D[3])
       : "r"(A[0]), "r"(A[1]), "r"(B[0]), "r"(B[1]), "r"(C[0]), "r"(C[1]), "r"(C[2]), "r"(C[3])

@@ -30,6 +30,7 @@
  **************************************************************************************************/
 /*! \file
     \brief Template for a pipelined GEMM kernel. Does not compute batching or support split-K.
+    注释：流水线 GEMM 内核模板。不计算批处理，也不支持 split-K。
 */
 
 #pragma once
@@ -184,6 +185,7 @@ template <
     /// Operator class tag
     typename OperatorClass_ = arch::OpClassSimt,
     /// Tag indicating architecture to tune for
+    /// 注释：表示要调整的架构的标签。 这是支持预期功能的最小 SM。设备内核可针对大于此数字的任何 SM 构建。
     typename ArchTag_ = arch::Sm70,
     /// Threadblock-level tile size (concept: GemmShape)
     typename ThreadblockShape_ = typename DefaultGemmConfiguration<
@@ -198,6 +200,7 @@ template <
         OperatorClass_, ArchTag_, ElementA_, ElementB_, ElementC_,
         ElementAccumulator_>::InstructionShape,
     /// Epilogue output operator
+    // 注释：后处理输出操作
     typename EpilogueOutputOp_ = typename DefaultGemmConfiguration<
         OperatorClass_, ArchTag_, ElementA_, ElementB_, ElementC_,
         ElementAccumulator_>::EpilogueOutputOp,
@@ -217,6 +220,7 @@ template <
         DefaultGemmConfiguration<OperatorClass_, ArchTag_, ElementA_, ElementB_,
                                  ElementC_, ElementAccumulator_>::kAlignmentB,
     /// If true, kernel supports split-K with serial reduction
+    // 注释：在K轴上拆分并串行
     bool SplitKSerial = false,
     /// Operation performed by GEMM
     typename Operator_ = typename DefaultGemmConfiguration<
@@ -261,6 +265,7 @@ class Gemm {
   static ComplexTransform const kTransformB = ComplexTransform::kNone;
 
   /// Define the kernel
+  // 注释：传参给kernel层定义新类型
   using GemmKernel = typename kernel::DefaultGemm<
     ElementA,
     LayoutA,
@@ -289,6 +294,7 @@ class Gemm {
   >::GemmKernel;
 
   /// Argument structure
+  // 注释：device::Gemm::Arguments参数
   struct Arguments {
 
     //
@@ -359,10 +365,12 @@ public:
   /// Determines whether the GEMM can execute the given problem.
   static Status can_implement(Arguments const &args) {
 
+    // 注释：如果kSplitKSerial为false，split_k_slices就必须为1
     if (!kSplitKSerial && args.split_k_slices > 1) {
       return Status::kErrorInvalidProblem;
     }
 
+    // 注释：使用kernel层can_implement函数的结果
     Status status = GemmKernel::can_implement(
       args.problem_size,
       args.ref_A.non_const_ref(),
@@ -384,13 +392,16 @@ public:
     size_t bytes = 0;
 
     // Determine grid shape
+    // 注释：线程块映射工具类
     ThreadblockSwizzle threadblock_swizzle;
 
+    // 注释：tiled_shape = (DIVUP(problem_size.m, ThreadblockShape::kM), DIVUP(problem_size.n, ThreadblockShape::kN), split_k_slices)
     cutlass::gemm::GemmCoord tiled_shape = threadblock_swizzle.get_tiled_shape(
       args.problem_size, 
       {ThreadblockShape::kM, ThreadblockShape::kN, ThreadblockShape::kK},
       args.split_k_slices);
-    
+
+    // 注释：如果kSplitKSerial为true，split_k_slices>1，那么就新增workspace作累加空间
     if (kSplitKSerial && args.split_k_slices > 1) {
 
       bytes += sizeof(int) * size_t(tiled_shape.m()) * size_t(tiled_shape.n());
@@ -405,6 +416,7 @@ public:
     // Determine grid shape
     ThreadblockSwizzle threadblock_swizzle;
 
+    // 注释：grid_shape = (DIVUP(problem_size.m, ThreadblockShape::kM), DIVUP(problem_size.n, ThreadblockShape::kN), split_k_slices)
     cutlass::gemm::GemmCoord grid_shape = threadblock_swizzle.get_tiled_shape(
       args.problem_size, 
       {ThreadblockShape::kM, ThreadblockShape::kN, ThreadblockShape::kK},
@@ -413,6 +425,7 @@ public:
     if (kSplitKSerial) {
       if (args.split_k_slices > 1) {
         if (!workspace) {
+          // 注释：如果kSplitKSerial为true，split_k_slices>1，那么就要有workspace作累加空间
           return Status::kErrorWorkspaceNull;
         }
 
@@ -426,13 +439,14 @@ public:
       }
     }
     else {
-
       if (args.split_k_slices > 1) {
+        // 注释：如果kSplitKSerial为false，split_k_slices就必须为1
         return Status::kErrorInvalidProblem;
       }
     }
 
     // Initialize the Params structure
+    // 注释：将Arguments参数传递给kernel层的Params
     params_ = typename GemmKernel::Params{
       args.problem_size,
       grid_shape,
@@ -451,8 +465,10 @@ public:
   }
 
   /// Lightweight update given a subset of arguments
+  /// 注释：给定参数子集的轻量级更新
   Status update(Arguments const &args, void *workspace = nullptr) {
     
+    // 注释：如果kSplitKSerial为true，split_k_slices>1，那么就要有workspace作累加空间
     if (kSplitKSerial && args.split_k_slices > 1) {  
       if (!workspace) {
         return Status::kErrorWorkspaceNull;
@@ -470,10 +486,13 @@ public:
   }
 
   /// Runs the kernel using initialized state.
+  // 注释：device层主函数
   Status run(cudaStream_t stream = nullptr) {
 
     ThreadblockSwizzle threadblock_swizzle;
 
+    // 注释：grid_shape = (DIVUP(problem_size.m, ThreadblockShape::kM), DIVUP(problem_size.n, ThreadblockShape::kN), split_k_slices)
+    // 经过threadblock_swizzle调整后作为grid size
     dim3 grid = threadblock_swizzle.get_grid_shape(params_.grid_tiled_shape);
     dim3 block(GemmKernel::kThreadCount, 1, 1);
 
@@ -481,6 +500,7 @@ public:
 
     int smem_size = int(sizeof(typename GemmKernel::SharedStorage));
 
+    // 注释：保证足够的共享内存空间
     if (smem_size >= (48 << 10)) {
       result = cudaFuncSetAttribute(Kernel<GemmKernel>,
                                     cudaFuncAttributeMaxDynamicSharedMemorySize,
@@ -492,8 +512,10 @@ public:
     }
 
     cutlass::arch::synclog_setup();
+    // 注释：启动核函数
     cutlass::Kernel<GemmKernel><<<grid, block, smem_size, stream>>>(params_);
 
+    // 注释：检查调用结果
     result = cudaGetLastError();
 
     return result == cudaSuccess ? Status::kSuccess : Status::kErrorInternal;
@@ -509,7 +531,7 @@ public:
     Arguments const &args, 
     void *workspace = nullptr, 
     cudaStream_t stream = nullptr) {
-    
+    // 注释：初始化参数
     Status status = initialize(args, workspace, stream);
     
     if (status == Status::kSuccess) {
@@ -523,6 +545,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 
 /// Partial specialization for column-major output exchanges problem size and operand.
+/// 注释：为列优先存储作的模板特例化
 template <
     /// Element type for A matrix operand
     typename ElementA_,
@@ -570,7 +593,7 @@ template <
     typename PermuteDLayout
 >
 class Gemm<ElementA_, LayoutA_, ElementB_, LayoutB_, ElementC_,
-           layout::ColumnMajor,  // partially specialized on LayoutC
+           layout::ColumnMajor,  // partially specialized on LayoutC 注释：要求结果C矩阵是列优先存储
            ElementAccumulator_, OperatorClass_, ArchTag_, ThreadblockShape_,
            WarpShape_, InstructionShape_, EpilogueOutputOp_,
            ThreadblockSwizzle_, Stages, AlignmentA, AlignmentB, SplitKSerial,
@@ -603,13 +626,16 @@ class Gemm<ElementA_, LayoutA_, ElementB_, LayoutB_, ElementC_,
   static ComplexTransform const kTransformB = ComplexTransform::kNone;
   static bool const kSplitKSerial = SplitKSerial;
 
+  // 注释：Underlying 谎言之下，底层的
+  // 将A和B交换，因为1.AxB=C等价于转置Bx转置A=转置C，2.矩阵行优先存储和转置矩阵列优先存储结果一致，转置等价于改变存储layout
+  // 所以生成列优先矩阵C的任务可以转换为生成行优先矩阵C转置，仍使用生成行优先矩阵的操作过程，但A和B需要调换位置，且都要转置（改变存储layout）
   using UnderlyingOperator = Gemm< 
     ElementB,
     typename layout::LayoutTranspose<LayoutB>::type,
     ElementA,
     typename layout::LayoutTranspose<LayoutA>::type,
     ElementC,
-    layout::RowMajor,    
+    layout::RowMajor,
     ElementAccumulator,
     OperatorClass,
     ArchTag,
