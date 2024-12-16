@@ -31,6 +31,7 @@
 
 /*! \file
     \brief Template for a pipelined GEMM kernel. Does not compute batching or support split-K.
+    注释：流水线 GEMM 内核模板。不计算批处理，也不支持 split-K。
 */
 
 #pragma once
@@ -66,6 +67,8 @@ struct Gemm {
 
   /// Warp count (concept: GemmShape)
   using WarpCount = typename Mma::WarpCount;
+  // 注释：kThreadCount = 32 * WarpCount::kCount
+  //   = 32 * (ThreadblockShape.m/WarpShape.m) * (ThreadblockShape.n/WarpShape.n) * (ThreadblockShape.k/WarpShape.k)
   static int const kThreadCount = 32 * WarpCount::kCount;
 
   /// Parameters structure
@@ -127,7 +130,9 @@ struct Gemm {
       gather_B_indices(gather_B_indices),
       scatter_D_indices(scatter_D_indices) {
 
+      // 注释：total_gemm_k_iterations = DIVUP(problem_size.k, ThreadblockShape.k)
       int total_gemm_k_iterations = (problem_size.k() + Mma::Shape::kK - 1) / Mma::Shape::kK;
+      // 注释：gemm_k_iterations = DIVUP(total_gemm_k_iterations, split_k_slices)
       int gemm_k_iterations = (total_gemm_k_iterations + grid_tiled_shape.k() - 1) / grid_tiled_shape.k();
       
       gemm_k_size = gemm_k_iterations * Mma::Shape::kK;
@@ -200,6 +205,7 @@ struct Gemm {
   }
 
   /// Executes one GEMM
+  // 注释：kernel层主函数
   CUTLASS_DEVICE
   void operator()(Params const &params, SharedStorage &shared_storage) {
 
@@ -210,6 +216,8 @@ struct Gemm {
         threadblock_swizzle.get_tile_offset(params.swizzle_log_tile);
 
     // Early exit if CTA is out of range
+    // 注释：相当于gridDim <= blockIdx
+    // grid_tiled_shape = (DIVUP(problem_size.m, ThreadblockShape::kM), DIVUP(problem_size.n, ThreadblockShape::kN), split_k_slices)
     if (params.grid_tiled_shape.m() <= threadblock_tile_offset.m() ||
       params.grid_tiled_shape.n() <= threadblock_tile_offset.n()) {
 
@@ -217,6 +225,7 @@ struct Gemm {
     }
 
     // Compute initial location in logical coordinates
+    // 注释：计算逻辑坐标中的初始位置
     cutlass::MatrixCoord tb_offset_A{
       threadblock_tile_offset.m() * Mma::Shape::kM,
       threadblock_tile_offset.k() * params.gemm_k_size,
@@ -257,6 +266,8 @@ struct Gemm {
 
     // Broadcast the warp_id computed by lane 0 to ensure dependent code
     // is compiled as warp-uniform.
+    // 注释：warp_idx = threadIdx.x / 32
+    // lane_idx = threadIdx.x % 32
     int warp_idx = canonical_warp_idx_sync();
     int lane_idx = threadIdx.x % 32;
 
@@ -273,6 +284,7 @@ struct Gemm {
 
     if (!kSplitKSerial || gemm_k_iterations > 0) {
       // Compute threadblock-scoped matrix multiply-add
+      // 主函数步骤1-mma
       mma(gemm_k_iterations, accumulators, iterator_A, iterator_B, accumulators);
     }
 
@@ -301,6 +313,7 @@ struct Gemm {
     Semaphore semaphore(params.semaphore + block_idx, thread_idx);
 
     // If performing a reduction via split-K, fetch the initial synchronization
+    // 注释：grid_tiled_shape = (DIVUP(problem_size.m, ThreadblockShape::kM), DIVUP(problem_size.n, ThreadblockShape::kN), split_k_slices)
     if (kSplitKSerial && params.grid_tiled_shape.k() > 1) {
       
       // Fetch the synchronization lock initially but do not block.
@@ -337,6 +350,7 @@ struct Gemm {
       lane_idx);
 
     // Wait on the semaphore - this latency may have been covered by iterator construction
+    // 注释：grid_tiled_shape = (DIVUP(problem_size.m, ThreadblockShape::kM), DIVUP(problem_size.n, ThreadblockShape::kN), split_k_slices)
     if (kSplitKSerial && params.grid_tiled_shape.k() > 1) {
         
       // For subsequent threadblocks, the source matrix is held in the 'D' tensor.
@@ -349,12 +363,13 @@ struct Gemm {
     }
 
     // Execute the epilogue operator to update the destination tensor.
+    // 注释：主函数步骤2-后处理
     epilogue(output_op, iterator_D, accumulators, iterator_C); 
     
     //
     // Release the semaphore
     //
-
+    // 注释：grid_tiled_shape = (DIVUP(problem_size.m, ThreadblockShape::kM), DIVUP(problem_size.n, ThreadblockShape::kN), split_k_slices)
     if (kSplitKSerial && params.grid_tiled_shape.k() > 1) {
       
       int lock = 0;

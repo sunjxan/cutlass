@@ -66,6 +66,7 @@ template <typename  T>                                                          
 ////////////////////////////////////////////////////////////////////////////////
 
 /// Generic CUTLASS kernel template.
+// 注释：启动核函数
 template <typename Operator>
 CUTLASS_GLOBAL
 void Kernel(typename Operator::Params params) {
@@ -83,6 +84,7 @@ void Kernel(typename Operator::Params params) {
 
 
 /// Generic CUTLASS kernel template.
+// 注释：启动核函数2
 template <typename Operator>
 CUTLASS_GLOBAL
 void Kernel2(typename Operator::Params params) {
@@ -105,6 +107,7 @@ void Kernel2(typename Operator::Params params) {
 ////////////////////////////////////////////////////////////////////////////////
 
 /// Generic CUTLASS kernel template.
+// 注释：启动核函数3
 template <typename Operator>
 CUTLASS_GLOBAL
 #ifdef __CUDACC__

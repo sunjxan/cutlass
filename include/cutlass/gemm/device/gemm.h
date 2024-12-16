@@ -494,6 +494,8 @@ public:
     // 注释：grid_shape = (DIVUP(problem_size.m, ThreadblockShape::kM), DIVUP(problem_size.n, ThreadblockShape::kN), split_k_slices)
     // 经过threadblock_swizzle调整后作为grid size
     dim3 grid = threadblock_swizzle.get_grid_shape(params_.grid_tiled_shape);
+    // 注释：kThreadCount = 32 * WarpCount::kCount
+    //   = 32 * (ThreadblockShape.m/WarpShape.m) * (ThreadblockShape.n/WarpShape.n) * (ThreadblockShape.k/WarpShape.k)
     dim3 block(GemmKernel::kThreadCount, 1, 1);
 
     cudaError_t result;

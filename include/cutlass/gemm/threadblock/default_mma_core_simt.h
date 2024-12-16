@@ -118,12 +118,14 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
   using ElementC = ElementC_;
   using LayoutC = LayoutC_;
   using OperatorClass = arch::OpClassSimt;
+  // 注释：PartitionsK = ThreadblockShape.k/WarpShape.k
   static int const PartitionsK = Shape::kK / WarpShape::kK;
 
   /// Default Operator
   using Operator = Operator_;
 
   /// Number of warps present
+  // 注释：WarpCount = (ThreadblockShape.m/WarpShape.m, ThreadblockShape.n/WarpShape.n, ThreadblockShape.k/WarpShape.k)
   using WarpCount = GemmShape<
     Shape::kM / WarpShape::kM,
     Shape::kN / WarpShape::kN,
@@ -131,6 +133,7 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
   >;
 
   // Divisility requirements
+  // 注释：WarpShape.m能整除ThreadblockShape.m，WarpShape.n能整除ThreadblockShape.n
   static_assert(
     !(Shape::kM % WarpShape::kM) &&
     !(Shape::kN % WarpShape::kN),
@@ -138,9 +141,11 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
   );
 
   /// Number of threads per warp
+  // 注释：kWarpSize = 32
   static int const kWarpSize = warp::WarpSize<arch::OpClassSimt>::value;
 
   /// Number of threads total
+  // 注释：kThreads = 32 * (ThreadblockShape.m/WarpShape.m) * (ThreadblockShape.n/WarpShape.n) * (ThreadblockShape.k/WarpShape.k)
   static int const kThreads = WarpCount::kCount * kWarpSize;
 
   static int const kElementsPerAccess = 1;
@@ -193,7 +198,9 @@ struct DefaultMmaCore<Shape_, WarpShape_, GemmShape<1, 1, 1>, ElementA_,
   //
 
   // Define the warp-level op
+  // 注释：WarpNumThreadsM = 8或者4，根据WarpShape的m和n大小确定
   static const int WarpNumThreadsM = detail::simt_get_warp_threads_m<WarpShape>();
+  // 注释：WarpNumThreadsN = 4或者8，根据WarpShape的n和m大小确定
   static const int WarpNumThreadsN = kWarpSize / WarpNumThreadsM;
   static const int ThreadTileM = WarpShape::kM / WarpNumThreadsM;
   static const int ThreadTileN = WarpShape::kN / WarpNumThreadsN;

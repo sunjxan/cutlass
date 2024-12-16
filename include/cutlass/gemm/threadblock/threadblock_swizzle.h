@@ -130,6 +130,7 @@ struct GemmIdentityThreadblockSwizzle {
   }
 
   /// Obtains the threadblock offset (in units of threadblock-scoped tiles)
+  // 注释：获得调整后的blockIdx
   CUTLASS_DEVICE
   static GemmCoord get_tile_offset(int log_tile) {
     int block_idx_x = RematerializeBlockIdxX();
